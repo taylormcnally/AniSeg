@@ -21,7 +21,7 @@ import scipy.misc
 import numpy as np
 from object_detection.utils import visualization_utils as vis_utils
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from object_detection.core import standard_fields
 from object_detection.core import prefetcher

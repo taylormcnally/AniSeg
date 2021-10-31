@@ -1,11 +1,13 @@
 """Does object detection and segmentation on images."""
-import json
 import os
 import threading
+import cv2
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from google.protobuf import text_format
+
+tf.disable_eager_execution()
 
 import util_io
 from object_detection.builders import image_resizer_builder
@@ -111,8 +113,22 @@ def main(_):
           max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
           min_y = int(min(round(result["detection_bbox_ymin"][crop_i] * idims[0]), idims[0]))
           max_y = int(min(round(result["detection_bbox_ymax"][crop_i] * idims[0]), idims[0]))
+
+          #sliding 720x720 crop the image
+          center_x = round((min_x+max_x)/2)
+          if center_x-355 < 0:
+            min_x = 0
+            max_x = 720
+          elif center_x+355 > idims[1]:
+            min_x = idims[1]-720
+            max_x = idims[1]
+          else:
+            min_x = center_x-355
+            max_x = center_x+355
+
           image_cropped = image_np[min_y:max_y, min_x:max_x, :]
-          util_io.imsave(output_crop, image_cropped)
+          image_scaled = cv2.resize(image_cropped, (512, 512))
+          util_io.imsave(output_crop, image_scaled)
 
     if FLAGS.visualize_inference:
       output_image = os.path.join(FLAGS.output_path, os.path.basename(image_path))
@@ -126,9 +142,6 @@ def main(_):
         util_io.imsave(output_mask, np.array(result['detected_masks'][mask_i]) * 255)
       del result['detected_masks']  # Storing mask in json is pretty space consuming.
 
-    output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
-    with open(output_file, 'w') as f:
-      json.dump(result, f)
 
     tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
 
